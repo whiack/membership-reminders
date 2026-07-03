@@ -1,8 +1,8 @@
-name: 叮咚买菜会员日提醒
+name: Dingdong Member Day Reminder
 
 on:
   schedule:
-    # 每周二、周五 10:00 北京时间 = 02:00 UTC
+    # Every Tuesday and Friday at 10:00 Beijing time = 02:00 UTC
     - cron: '0 2 * * 2,5'
   workflow_dispatch:
 
@@ -10,7 +10,54 @@ jobs:
   remind:
     runs-on: ubuntu-latest
     steps:
-      - name: 发送叮咚买菜提醒
+      - name: Send Dingdong reminder
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
         run: |
-          curl -s -X POST "${{ secrets.FEISHU_WEBHOOK }}" -H "Content-Type: application/json" \
-            -d '{"msg_type":"interactive","card":{"header":{"title":{"tag":"plain_text","content":"🥬 叮咚买菜会员日"},"template":"green"},"elements":[{"tag":"div","text":{"tag":"lark_md","content":"**今天是会员日！**\n\n记得去叮咚买菜下单，会员日专享优惠别错过～"}},{"tag":"hr"},{"tag":"note","elements":[{"tag":"plain_text","content":"🛒 叮咚买菜APP → 会员中心 → 会员日专区"}]}]}}'
+          set -euo pipefail
+
+          if [ -z "${FEISHU_WEBHOOK:-}" ]; then
+            echo "FEISHU_WEBHOOK secret is not configured."
+            exit 1
+          fi
+
+          cat > payload.json <<'JSON'
+          {
+            "msg_type": "interactive",
+            "card": {
+              "header": {
+                "template": "green",
+                "title": {
+                  "tag": "plain_text",
+                  "content": "叮咚买菜会员日提醒"
+                }
+              },
+              "elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "tag": "lark_md",
+                    "content": "**今天是叮咚买菜会员日。**\n\n记得去叮咚买菜下单，会员日专享优惠别错过。"
+                  }
+                },
+                {
+                  "tag": "hr"
+                },
+                {
+                  "tag": "note",
+                  "elements": [
+                    {
+                      "tag": "plain_text",
+                      "content": "叮咚买菜 App -> 会员中心 -> 会员日专区"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          JSON
+
+          curl --fail --silent --show-error \
+            -X POST "${FEISHU_WEBHOOK}" \
+            -H "Content-Type: application/json" \
+            --data @payload.json
