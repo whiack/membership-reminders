@@ -1,0 +1,22 @@
+name: 每月会员福利提醒
+
+on:
+  schedule:
+    # 每月1号 20:00 北京时间 = 12:00 UTC
+    - cron: '0 12 1 * *'
+  workflow_dispatch:
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 发送会员福利提醒
+        run: |
+          MONTH=$(date +'%-m')
+          if [ "$MONTH" = "1" ] || [ "$MONTH" = "4" ] || [ "$MONTH" = "7" ] || [ "$MONTH" = "10" ]; then
+            curl -s -X POST "${{ secrets.FEISHU_WEBHOOK }}" -H "Content-Type: application/json" \
+              -d '{"msg_type":"interactive","card":{"header":{"title":{"tag":"plain_text","content":"🎁 每月会员福利提醒"},"template":"blue"},"elements":[{"tag":"div","text":{"tag":"lark_md","content":"**又到了领福利的时间啦！**\n\n请记得去领取以下会员福利："}},{"tag":"div","text":{"tag":"lark_md","content":"🔵 **携程会员**\n• 每月领大会员 🎧 推荐选**喜马拉雅**\n\n路径：携程APP → 我的 → 会员中心 → 每月领大会员"}},{"tag":"hr"},{"tag":"div","text":{"tag":"lark_md","content":"🟢 **微众银行铂金会员**（本季度）\n• 好礼五选一：腾讯视频月卡 / QQ音乐月卡 / 维达纸抽 / 洗衣液等\n\n路径：微众银行APP → 我的 → 会员中心 → 好礼"}},{"tag":"hr"},{"tag":"note","elements":[{"tag":"plain_text","content":"💡 福利每月1号刷新，当月/当季领取有效！"}]}]}}'
+          else
+            curl -s -X POST "${{ secrets.FEISHU_WEBHOOK }}" -H "Content-Type: application/json" \
+              -d '{"msg_type":"interactive","card":{"header":{"title":{"tag":"plain_text","content":"🎁 每月会员福利提醒"},"template":"blue"},"elements":[{"tag":"div","text":{"tag":"lark_md","content":"**又到了领福利的时间啦！**\n\n请记得去领取以下会员福利："}},{"tag":"div","text":{"tag":"lark_md","content":"🔵 **携程会员**\n• 每月领大会员 🎧 推荐选**喜马拉雅**\n\n路径：携程APP → 我的 → 会员中心 → 每月领大会员"}},{"tag":"hr"},{"tag":"note","elements":[{"tag":"plain_text","content":"💡 福利每月1号刷新，当月领取有效！"}]}]}}'
+          fi
