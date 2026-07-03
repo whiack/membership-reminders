@@ -1,8 +1,8 @@
-name: 每月会员福利提醒
+name: Monthly Membership Benefit Reminder
 
 on:
   schedule:
-    # 每月1号 20:00 北京时间 = 12:00 UTC
+    # Day 1 of every month at 20:00 Beijing time = 12:00 UTC
     - cron: '0 12 1 * *'
   workflow_dispatch:
 
@@ -10,13 +10,63 @@ jobs:
   remind:
     runs-on: ubuntu-latest
     steps:
-      - name: 发送会员福利提醒
+      - name: Send membership benefit reminder
+        env:
+          FEISHU_WEBHOOK: ${{ secrets.FEISHU_WEBHOOK }}
         run: |
-          MONTH=$(date +'%-m')
-          if [ "$MONTH" = "1" ] || [ "$MONTH" = "4" ] || [ "$MONTH" = "7" ] || [ "$MONTH" = "10" ]; then
-            curl -s -X POST "${{ secrets.FEISHU_WEBHOOK }}" -H "Content-Type: application/json" \
-              -d '{"msg_type":"interactive","card":{"header":{"title":{"tag":"plain_text","content":"🎁 每月会员福利提醒"},"template":"blue"},"elements":[{"tag":"div","text":{"tag":"lark_md","content":"**又到了领福利的时间啦！**\n\n请记得去领取以下会员福利："}},{"tag":"div","text":{"tag":"lark_md","content":"🔵 **携程会员**\n• 每月领大会员 🎧 推荐选**喜马拉雅**\n\n路径：携程APP → 我的 → 会员中心 → 每月领大会员"}},{"tag":"hr"},{"tag":"div","text":{"tag":"lark_md","content":"🟢 **微众银行铂金会员**（本季度）\n• 好礼五选一：腾讯视频月卡 / QQ音乐月卡 / 维达纸抽 / 洗衣液等\n\n路径：微众银行APP → 我的 → 会员中心 → 好礼"}},{"tag":"hr"},{"tag":"note","elements":[{"tag":"plain_text","content":"💡 福利每月1号刷新，当月/当季领取有效！"}]}]}}'
-          else
-            curl -s -X POST "${{ secrets.FEISHU_WEBHOOK }}" -H "Content-Type: application/json" \
-              -d '{"msg_type":"interactive","card":{"header":{"title":{"tag":"plain_text","content":"🎁 每月会员福利提醒"},"template":"blue"},"elements":[{"tag":"div","text":{"tag":"lark_md","content":"**又到了领福利的时间啦！**\n\n请记得去领取以下会员福利："}},{"tag":"div","text":{"tag":"lark_md","content":"🔵 **携程会员**\n• 每月领大会员 🎧 推荐选**喜马拉雅**\n\n路径：携程APP → 我的 → 会员中心 → 每月领大会员"}},{"tag":"hr"},{"tag":"note","elements":[{"tag":"plain_text","content":"💡 福利每月1号刷新，当月领取有效！"}]}]}}'
+          set -euo pipefail
+
+          if [ -z "${FEISHU_WEBHOOK:-}" ]; then
+            echo "FEISHU_WEBHOOK secret is not configured."
+            exit 1
           fi
+
+          month="$(TZ=Asia/Shanghai date +%-m)"
+          if [ "${month}" = "1" ] || [ "${month}" = "4" ] || [ "${month}" = "7" ] || [ "${month}" = "10" ]; then
+            benefits="**携程会员**\n- 每月领大会员，推荐选择：喜马拉雅\n- 路径：携程 App -> 我的 -> 会员中心 -> 每月领大会员\n\n**微众银行铂金会员**\n- 本季度好礼五选一：腾讯视频月卡 / QQ 音乐月卡 / 维达纸抽 / 洗衣液等\n- 路径：微众银行 App -> 我的 -> 会员中心 -> 好礼"
+            note="本月同时有微众银行季度铂金会员好礼。"
+          else
+            benefits="**携程会员**\n- 每月领大会员，推荐选择：喜马拉雅\n- 路径：携程 App -> 我的 -> 会员中心 -> 每月领大会员"
+            note="携程福利每月 1 号刷新，当月领取有效。"
+          fi
+
+          cat > payload.json <<JSON
+          {
+            "msg_type": "interactive",
+            "card": {
+              "header": {
+                "template": "blue",
+                "title": {
+                  "tag": "plain_text",
+                  "content": "会员福利提醒"
+                }
+              },
+              "elements": [
+                {
+                  "tag": "div",
+                  "text": {
+                    "tag": "lark_md",
+                    "content": "**又到领取会员福利的时间了。**\\n\\n${benefits}"
+                  }
+                },
+                {
+                  "tag": "hr"
+                },
+                {
+                  "tag": "note",
+                  "elements": [
+                    {
+                      "tag": "plain_text",
+                      "content": "${note}"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+          JSON
+
+          curl --fail --silent --show-error \
+            -X POST "${FEISHU_WEBHOOK}" \
+            -H "Content-Type: application/json" \
+            --data @payload.json
